@@ -3,7 +3,7 @@ import express from 'express';
 import multer from 'multer';
 import fs from 'fs';
 import { protect, admin } from '../middleware/auth';
-import { uploadImage } from '../controllers/uploadController';
+import { uploadImage, uploadImages } from '../controllers/uploadController';
 
 const router = express.Router();
 
@@ -47,5 +47,9 @@ const upload = multer({
 // @route   POST /api/upload
 // @desc    Upload an image
 router.post('/', protect, admin, upload.single('image'), uploadImage);
+
+// @route   POST /api/upload/multiple
+// @desc    Upload multiple images
+router.post('/multiple', protect, admin, upload.array('images', 10), uploadImages);
 
 export default router;
