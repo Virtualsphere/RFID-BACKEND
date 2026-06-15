@@ -21,6 +21,17 @@ app.use(express.json());
 // Serve static files from the uploads directory
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Health check routes
+app.get('/', (req, res) => {
+  res.send('Welcome to RFID Server');
+});
+
+app.get('/status', (req, res) => {
+  res.status(200).json({
+    status: 'ok'
+  });
+});
+
 // Routes
 app.use('/api', routes);
 
