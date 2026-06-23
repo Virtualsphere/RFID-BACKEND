@@ -37,10 +37,19 @@ export const getDashboardStats = async (req: Request, res: Response) => {
 
 export const getUsers = async (req: Request, res: Response) => {
   try {
+    const { page = 1, limit = 50 } = req.query;
+    const pageNumber = parseInt(page as string, 10);
+    const limitNumber = parseInt(limit as string, 10);
+    const skip = (pageNumber - 1) * limitNumber;
+
     // Fetch all users, exclude passwords
     const users = await User.find({})
       .select('-password')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber);
+      
+    const total = await User.countDocuments({});
       
     // Calculate total spent for each user
     const usersWithSpent = await Promise.all(
@@ -56,7 +65,12 @@ export const getUsers = async (req: Request, res: Response) => {
       })
     );
 
-    res.json(usersWithSpent);
+    res.json({
+      users: usersWithSpent,
+      page: pageNumber,
+      pages: Math.ceil(total / limitNumber),
+      total
+    });
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ message: 'Server Error' });

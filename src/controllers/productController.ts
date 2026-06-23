@@ -1,20 +1,35 @@
 import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import Product from '../models/Product';
 
 export const getProducts = async (req: Request, res: Response) => {
   try {
-    const { name, model, status } = req.query;
+    const { name, model, status, page = 1, limit = 50 } = req.query;
     const filter: any = {};
 
     if (name) filter.name = { $regex: name as string, $options: 'i' };
     if (model) filter.model = { $regex: model as string, $options: 'i' };
     if (status !== undefined && status !== '') filter.status = status === 'true' || status === '1';
 
+    const pageNumber = parseInt(page as string, 10);
+    const limitNumber = parseInt(limit as string, 10);
+    const skip = (pageNumber - 1) * limitNumber;
+
     const products = await Product.find(filter)
       .populate('category', 'name')
-      .sort({ sortOrder: 1, name: 1 });
+      .sort({ sortOrder: 1, name: 1 })
+      .skip(skip)
+      .limit(limitNumber);
       
-    res.json(products);
+    const total = await Product.countDocuments(filter);
+      
+    res.json({
+      products,
+      page: pageNumber,
+      pages: Math.ceil(total / limitNumber),
+      total
+    });
   } catch (error) {
     console.error('Error fetching products:', error);
     res.status(500).json({ message: 'Server Error' });
@@ -179,7 +194,18 @@ export const deleteProduct = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
+    const imagesToDelete = product.images || [];
+
     await Product.findByIdAndDelete(req.params.id);
+
+    // Clean up images
+    imagesToDelete.forEach(img => {
+      const fullPath = path.join(__dirname, '../../', img.replace(/^\//, ''));
+      if (fs.existsSync(fullPath)) {
+        try { fs.unlinkSync(fullPath); } catch (e) { console.error('Failed to delete image', e); }
+      }
+    });
+
     res.json({ message: 'Product deleted successfully' });
   } catch (error) {
     console.error('Error deleting product:', error);
@@ -194,7 +220,19 @@ export const bulkDeleteProducts = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'No product IDs provided' });
     }
 
+    const products = await Product.find({ _id: { $in: ids } });
+    const allImages = products.flatMap(p => p.images || []);
+
     await Product.deleteMany({ _id: { $in: ids } });
+
+    // Clean up images
+    allImages.forEach(img => {
+      const fullPath = path.join(__dirname, '../../', img.replace(/^\//, ''));
+      if (fs.existsSync(fullPath)) {
+        try { fs.unlinkSync(fullPath); } catch (e) { console.error('Failed to delete image', e); }
+      }
+    });
+
     res.json({ message: `${ids.length} product(s) deleted successfully` });
   } catch (error) {
     console.error('Error bulk deleting products:', error);

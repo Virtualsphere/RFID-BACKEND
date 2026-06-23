@@ -23,6 +23,10 @@ export const verifyPayment = async (req: Request, res: Response) => {
       const order = await Order.findOne({ razorpayOrderId: razorpay_order_id });
 
       if (order) {
+        if (order.paymentStatus === 'Paid') {
+          return res.json({ message: "Payment already verified", orderId: order._id });
+        }
+
         order.paymentStatus = 'Paid';
         order.status = 'Processing'; // Move from Pending Payment to Processing
         order.razorpayPaymentId = razorpay_payment_id;
@@ -30,7 +34,8 @@ export const verifyPayment = async (req: Request, res: Response) => {
         await order.save();
 
         // Clear the user's cart after successful payment
-        const cart = await Cart.findOne({ user: order.user });
+        const userId = (order.user as any)._id || order.user;
+        const cart = await Cart.findOne({ user: userId });
         if (cart) {
           cart.items = [];
           await cart.save();

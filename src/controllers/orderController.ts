@@ -68,11 +68,20 @@ export const createOrder = async (req: Request | any, res: Response) => {
 
 export const getMyOrders = async (req: Request | any, res: Response) => {
   try {
+    const { page = 1, limit = 50 } = req.query;
+    const pageNumber = parseInt(page as string, 10);
+    const limitNumber = parseInt(limit as string, 10);
+    const skip = (pageNumber - 1) * limitNumber;
+
     const orders = await Order.find({ user: req.user?._id, status: { $ne: 'Pending Payment' } })
       .populate('items.product')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber);
       
-    res.json(orders);
+    const total = await Order.countDocuments({ user: req.user?._id, status: { $ne: 'Pending Payment' } });
+      
+    res.json({ orders, page: pageNumber, pages: Math.ceil(total / limitNumber), total });
   } catch (error) {
     console.error('Error fetching user orders:', error);
     res.status(500).json({ message: 'Server Error' });
@@ -81,12 +90,21 @@ export const getMyOrders = async (req: Request | any, res: Response) => {
 
 export const getAllOrders = async (req: Request | any, res: Response) => {
   try {
+    const { page = 1, limit = 50 } = req.query;
+    const pageNumber = parseInt(page as string, 10);
+    const limitNumber = parseInt(limit as string, 10);
+    const skip = (pageNumber - 1) * limitNumber;
+
     const orders = await Order.find({ status: { $ne: 'Pending Payment' } })
       .populate('user', 'id name email')
       .populate('items.product')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber);
       
-    res.json(orders);
+    const total = await Order.countDocuments({ status: { $ne: 'Pending Payment' } });
+      
+    res.json({ orders, page: pageNumber, pages: Math.ceil(total / limitNumber), total });
   } catch (error) {
     console.error('Error fetching all orders:', error);
     res.status(500).json({ message: 'Server Error' });
