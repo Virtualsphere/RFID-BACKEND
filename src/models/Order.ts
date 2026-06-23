@@ -17,6 +17,8 @@ export interface IOrder extends Document {
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   razorpaySignature?: string;
+  shippingAddress: string;
+  phoneNumber: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -50,6 +52,14 @@ const OrderSchema: Schema = new Schema(
       type: Number,
       required: true,
       default: 0.0,
+    },
+    shippingAddress: {
+      type: String,
+      required: true,
+    },
+    phoneNumber: {
+      type: String,
+      required: true,
     },
     status: {
       type: String,

@@ -44,6 +44,9 @@ export interface IProduct extends Omit<Document, 'model'> {
   // SEO
   slug: string;
   
+  // Custom Specifications
+  specifications: { name: string; value: string }[];
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -92,6 +95,14 @@ const ProductSchema: Schema = new Schema(
 
     // SEO
     slug: { type: String, required: true, unique: true, trim: true },
+
+    // Custom Specifications
+    specifications: [
+      {
+        name: { type: String, trim: true },
+        value: { type: String, trim: true },
+      },
+    ],
   },
   { timestamps: true }
 );

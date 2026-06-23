@@ -71,7 +71,7 @@ export const createProduct = async (req: Request, res: Response) => {
     const { 
       name, description, metaTitle, metaDescription, metaKeywords, productTags,
       model, sku, upc, ean, jan, isbn, mpn, price, taxClass, stock, minimumQuantity, subtractStock, outOfStockStatus, dateAvailable, dimensions, lengthClass, weight, weightClass, status, sortOrder,
-      category, images, slug 
+      category, images, slug, specifications 
     } = req.body;
 
     if (!name || !description || !model || !sku || !category || price === undefined) {
@@ -95,7 +95,7 @@ export const createProduct = async (req: Request, res: Response) => {
     const newProduct = new Product({
       name, description, metaTitle, metaDescription, metaKeywords, productTags,
       model, sku, upc, ean, jan, isbn, mpn, price, taxClass, stock, minimumQuantity, subtractStock, outOfStockStatus, dateAvailable, dimensions, lengthClass, weight, weightClass, status, sortOrder,
-      category, images: images || [], slug: generatedSlug
+      category, images: images || [], slug: generatedSlug, specifications: specifications || []
     });
 
     const savedProduct = await newProduct.save();
@@ -118,7 +118,7 @@ export const updateProduct = async (req: Request, res: Response) => {
     const { 
       name, description, metaTitle, metaDescription, metaKeywords, productTags,
       model, sku, upc, ean, jan, isbn, mpn, price, taxClass, stock, minimumQuantity, subtractStock, outOfStockStatus, dateAvailable, dimensions, lengthClass, weight, weightClass, status, sortOrder,
-      category, images, slug 
+      category, images, slug, specifications 
     } = req.body;
 
     // Check for duplicate SKU
@@ -176,6 +176,7 @@ export const updateProduct = async (req: Request, res: Response) => {
     product.category = category || product.category;
     product.images = images !== undefined ? images : product.images;
     product.slug = slug || product.slug;
+    product.specifications = specifications !== undefined ? specifications : product.specifications;
 
     const updatedProduct = await product.save();
     const populated = await updatedProduct.populate('category', 'name');

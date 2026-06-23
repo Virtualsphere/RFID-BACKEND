@@ -5,6 +5,12 @@ import Cart from '../models/Cart';
 
 export const createOrder = async (req: Request | any, res: Response) => {
   try {
+    const { shippingAddress, phoneNumber } = req.body;
+
+    if (!shippingAddress || !phoneNumber) {
+      return res.status(400).json({ message: 'Shipping address and phone number are required' });
+    }
+
     // 1. Get the user's cart
     const cart = await Cart.findOne({ user: req.user?._id }).populate('items.product');
     
@@ -50,6 +56,8 @@ export const createOrder = async (req: Request | any, res: Response) => {
       user: req.user?._id,
       items: orderItems,
       totalPrice,
+      shippingAddress,
+      phoneNumber,
       status: 'Pending Payment',
       paymentStatus: 'Pending',
       razorpayOrderId: razorpayOrder.id,
