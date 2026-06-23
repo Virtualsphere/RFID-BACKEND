@@ -55,9 +55,7 @@ export const createOrder = async (req: Request | any, res: Response) => {
       razorpayOrderId: razorpayOrder.id,
     });
 
-    // 5. Clear the Cart
-    cart.items = [];
-    await cart.save();
+    // 5. Cart will be cleared after successful payment verification
 
     // Return the created order populated
     await order.populate('items.product');
@@ -70,7 +68,7 @@ export const createOrder = async (req: Request | any, res: Response) => {
 
 export const getMyOrders = async (req: Request | any, res: Response) => {
   try {
-    const orders = await Order.find({ user: req.user?._id })
+    const orders = await Order.find({ user: req.user?._id, status: { $ne: 'Pending Payment' } })
       .populate('items.product')
       .sort({ createdAt: -1 });
       
@@ -83,7 +81,7 @@ export const getMyOrders = async (req: Request | any, res: Response) => {
 
 export const getAllOrders = async (req: Request | any, res: Response) => {
   try {
-    const orders = await Order.find({})
+    const orders = await Order.find({ status: { $ne: 'Pending Payment' } })
       .populate('user', 'id name email')
       .populate('items.product')
       .sort({ createdAt: -1 });

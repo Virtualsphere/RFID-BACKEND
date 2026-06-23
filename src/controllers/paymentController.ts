@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import Order from '../models/Order';
+import Cart from '../models/Cart';
 
 export const verifyPayment = async (req: Request, res: Response) => {
   try {
@@ -27,6 +28,13 @@ export const verifyPayment = async (req: Request, res: Response) => {
         order.razorpayPaymentId = razorpay_payment_id;
         order.razorpaySignature = razorpay_signature;
         await order.save();
+
+        // Clear the user's cart after successful payment
+        const cart = await Cart.findOne({ user: order.user });
+        if (cart) {
+          cart.items = [];
+          await cart.save();
+        }
 
         res.json({ message: "Payment verified successfully", orderId: order._id });
       } else {

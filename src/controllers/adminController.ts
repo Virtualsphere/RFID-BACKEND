@@ -6,8 +6,9 @@ import Product from '../models/Product';
 export const getDashboardStats = async (req: Request, res: Response) => {
   try {
     // 1. Get total revenue (sum of all order totals)
-    const orders = await Order.find({});
-    const totalRevenue = orders.reduce((acc, order) => acc + order.totalPrice, 0);
+    const orders = await Order.find({ status: { $ne: 'Pending Payment' } });
+    const paidOrders = orders.filter(o => o.paymentStatus === 'Paid');
+    const totalRevenue = paidOrders.reduce((acc, order) => acc + order.totalPrice, 0);
 
     // 2. Get active customers (count of users with role 'customer')
     const totalCustomers = await User.countDocuments({ role: 'customer' });
@@ -16,7 +17,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     const lowStockItems = await Product.countDocuments({ stock: { $lt: 10 } });
 
     // 4. Get recent orders
-    const recentOrders = await Order.find({})
+    const recentOrders = await Order.find({ status: { $ne: 'Pending Payment' } })
       .populate('user', 'name email')
       .sort({ createdAt: -1 })
       .limit(5);
@@ -44,8 +45,9 @@ export const getUsers = async (req: Request, res: Response) => {
     // Calculate total spent for each user
     const usersWithSpent = await Promise.all(
       users.map(async (user) => {
-        const userOrders = await Order.find({ user: user._id });
-        const totalSpent = userOrders.reduce((acc, order) => acc + order.totalPrice, 0);
+        const userOrders = await Order.find({ user: user._id, status: { $ne: 'Pending Payment' } });
+        const paidOrders = userOrders.filter(o => o.paymentStatus === 'Paid');
+        const totalSpent = paidOrders.reduce((acc, order) => acc + order.totalPrice, 0);
         return {
           ...user.toObject(),
           totalSpent,
