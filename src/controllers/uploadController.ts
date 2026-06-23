@@ -5,7 +5,7 @@ export const uploadImage = (req: Request, res: Response) => {
     return res.status(400).send('No file uploaded');
   }
   // Return the path that will be served by the static route
-  res.send(`/${req.file.path.replace(/\\/g, '/')}`);
+  res.send(`/uploads/${req.file.filename}`);
 };
 
 export const uploadImages = (req: Request, res: Response) => {
@@ -13,6 +13,6 @@ export const uploadImages = (req: Request, res: Response) => {
     return res.status(400).send('No files uploaded');
   }
   // Return the paths
-  const paths = req.files.map(file => `/${file.path.replace(/\\/g, '/')}`);
+  const paths = req.files.map(file => `/uploads/${file.filename}`);
   res.json(paths);
 };
