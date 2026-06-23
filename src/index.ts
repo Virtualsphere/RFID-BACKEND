@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-dotenv.config();
+dotenv.config({ path: '/home/indiarfidshop/rfid_backend/rfid-backend/.env' });
 
 import express from 'express';
 import cors from 'cors';
