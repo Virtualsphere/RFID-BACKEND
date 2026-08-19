@@ -107,4 +107,13 @@ const ProductSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+// `sku` and `slug` already get unique indexes from their field definitions.
+// These cover what the read endpoints actually do:
+//   - the catalog listing sorts by { sortOrder, name } on every request, which
+//     without an index forces an in-memory sort of the whole collection
+//   - the storefront filters by `status`, and category pages by `category`
+ProductSchema.index({ sortOrder: 1, name: 1 });
+ProductSchema.index({ status: 1, sortOrder: 1, name: 1 });
+ProductSchema.index({ category: 1 });
+
 export default mongoose.model<IProduct>('Product', ProductSchema);

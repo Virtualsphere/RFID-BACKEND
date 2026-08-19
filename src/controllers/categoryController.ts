@@ -32,20 +32,35 @@ export const getCategories = async (req: Request, res: Response) => {
 
     const categories = await Category.find(filter)
       .populate('parent', 'name')
-      .sort({ sortOrder: 1, name: 1 });
+      .sort({ sortOrder: 1, name: 1 })
+      .lean();
 
-    // Count products and subcategories for each category
-    const categoriesWithCount = await Promise.all(
-      categories.map(async (cat) => {
-        const productCount = await Product.countDocuments({ category: cat._id });
-        const subcategoryCount = await Category.countDocuments({ parent: cat._id });
-        return {
-          ...cat.toObject(),
-          productCount,
-          subcategoryCount,
-        };
-      })
+    // Counts come from two grouped queries rather than two per category.
+    // This used to issue 1 + 2N queries (41 round trips for 20 categories),
+    // each one a separate network hop to Atlas.
+    const ids = categories.map((cat) => cat._id);
+
+    const [productCounts, subcategoryCounts] = await Promise.all([
+      Product.aggregate<{ _id: unknown; count: number }>([
+        { $match: { category: { $in: ids } } },
+        { $group: { _id: '$category', count: { $sum: 1 } } },
+      ]),
+      Category.aggregate<{ _id: unknown; count: number }>([
+        { $match: { parent: { $in: ids } } },
+        { $group: { _id: '$parent', count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const productCountBy = new Map(productCounts.map((r) => [String(r._id), r.count]));
+    const subcategoryCountBy = new Map(
+      subcategoryCounts.map((r) => [String(r._id), r.count])
     );
+
+    const categoriesWithCount = categories.map((cat) => ({
+      ...cat,
+      productCount: productCountBy.get(String(cat._id)) ?? 0,
+      subcategoryCount: subcategoryCountBy.get(String(cat._id)) ?? 0,
+    }));
 
     res.json(categoriesWithCount);
   } catch (error) {
