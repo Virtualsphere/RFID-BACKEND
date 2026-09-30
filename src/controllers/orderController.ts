@@ -11,6 +11,16 @@ export const createOrder = async (req: Request | any, res: Response) => {
       return res.status(400).json({ message: 'Shipping address and phone number are required' });
     }
 
+    // Fail fast, and say why in the server log. With the keys unset the SDK
+    // only surfaces an opaque authentication error from Razorpay's API, which
+    // used to reach the customer as a bare "Server Error".
+    const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
+    const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!razorpayKeyId || !razorpayKeySecret) {
+      console.error('Razorpay is not configured: set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in the backend .env');
+      return res.status(503).json({ message: 'Online payments are not available right now. Please contact us to place your order.' });
+    }
+
     // 1. Get the user's cart
     const cart = await Cart.findOne({ user: req.user?._id }).populate('items.product');
     
@@ -39,8 +49,8 @@ export const createOrder = async (req: Request | any, res: Response) => {
 
     // 3. Create Razorpay order
     const instance = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID || '',
-      key_secret: process.env.RAZORPAY_KEY_SECRET || '',
+      key_id: razorpayKeyId,
+      key_secret: razorpayKeySecret,
     });
 
     const options = {
@@ -48,8 +58,24 @@ export const createOrder = async (req: Request | any, res: Response) => {
       currency: "INR",
       receipt: `receipt_order_${Date.now()}`
     };
-    
-    const razorpayOrder = await instance.orders.create(options);
+
+    let razorpayOrder;
+    try {
+      razorpayOrder = await instance.orders.create(options);
+    } catch (gatewayError: any) {
+      // The SDK rejects with { statusCode, error: { code, description } }.
+      console.error(
+        'Razorpay order creation failed:',
+        gatewayError?.statusCode,
+        gatewayError?.error?.description || gatewayError
+      );
+      // 401 means Razorpay refused our keys: a configuration problem, not
+      // something the customer can fix by retrying.
+      if (gatewayError?.statusCode === 401) {
+        return res.status(503).json({ message: 'Online payments are not available right now. Please contact us to place your order.' });
+      }
+      return res.status(502).json({ message: "We couldn't reach the payment gateway. Please try again in a moment." });
+    }
 
     // 4. Create the Order in DB
     const order = await Order.create({
@@ -67,7 +93,15 @@ export const createOrder = async (req: Request | any, res: Response) => {
 
     // Return the created order populated
     await order.populate('items.product');
-    res.status(201).json({ order, razorpayOrderId: razorpayOrder.id });
+    // `keyId` is Razorpay's public key id (the secret never leaves the server).
+    // Sending it with the order means the checkout window always uses the key
+    // this server's secret belongs to, whatever the storefront was built with.
+    res.status(201).json({
+      order,
+      razorpayOrderId: razorpayOrder.id,
+      keyId: razorpayKeyId,
+      amount: razorpayOrder.amount,
+    });
   } catch (error) {
     console.error('Error creating order:', error);
     res.status(500).json({ message: 'Server Error' });
