@@ -10,6 +10,8 @@ export type EnquiryStatus = (typeof ENQUIRY_STATUSES)[number];
 export interface IEnquiry extends Document {
   name: string;
   email: string;
+  /** Required of new enquiries (the controller checks it); older ones have none. */
+  phone?: string;
   company?: string;
   subject: EnquirySubject;
   message: string;
@@ -26,6 +28,8 @@ const EnquirySchema: Schema = new Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 120 },
     email: { type: String, required: true, trim: true, lowercase: true, maxlength: 254 },
+    // Not `required` here: enquiries saved before the field existed must stay valid.
+    phone: { type: String, trim: true, maxlength: 20 },
     company: { type: String, trim: true, maxlength: 160 },
     subject: { type: String, enum: ENQUIRY_SUBJECTS, required: true },
     message: { type: String, required: true, trim: true, maxlength: 5000 },

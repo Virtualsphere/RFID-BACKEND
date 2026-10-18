@@ -4,6 +4,17 @@ import Enquiry, { ENQUIRY_STATUSES, ENQUIRY_SUBJECTS } from '../models/Enquiry';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * A phone number as people type it ("+91 98765-43210", "(022) 2345 6789"):
+ * 10 to 15 digits, from an Indian number without its country code to the
+ * longest international one. Mirrors isPhoneNumber in the storefront's
+ * src/lib/phone.ts.
+ */
+const isPhoneNumber = (value: string) => {
+  const digits = value.replace(/\D/g, '').length;
+  return /^\+?[\d\s().-]+$/.test(value) && digits >= 10 && digits <= 15;
+};
+
 /** Trimmed string from an untrusted body field, or '' when it isn't a string. */
 const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
 
@@ -21,14 +32,20 @@ export const createEnquiry = async (req: Request, res: Response) => {
 
     const name = text(body.name);
     const email = text(body.email);
+    const phone = text(body.phone);
     const message = text(body.message);
     const subject = text(body.subject);
 
-    if (!name || !email || !message) {
-      return res.status(400).json({ message: 'Name, email and message are required.' });
+    if (!name || !email || !phone || !message) {
+      return res.status(400).json({ message: 'Name, email, phone number and message are required.' });
     }
     if (!EMAIL_PATTERN.test(email)) {
       return res.status(400).json({ message: 'Please enter a valid email address.' });
+    }
+    if (!isPhoneNumber(phone)) {
+      return res.status(400).json({
+        message: 'Please enter a valid phone number. Outside India, include your country code.',
+      });
     }
     const validSubject = ENQUIRY_SUBJECTS.find((s) => s === subject);
     if (!validSubject) {
@@ -38,6 +55,7 @@ export const createEnquiry = async (req: Request, res: Response) => {
     await Enquiry.create({
       name,
       email,
+      phone,
       company: text(body.company) || undefined,
       subject: validSubject,
       message,
