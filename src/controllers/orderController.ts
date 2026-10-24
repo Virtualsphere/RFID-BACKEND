@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import Razorpay from 'razorpay';
 import Order from '../models/Order';
 import Cart from '../models/Cart';
+import { GST_PERCENT, withGst } from '../config/tax';
 
 export const createOrder = async (req: Request | any, res: Response) => {
   try {
@@ -28,14 +29,15 @@ export const createOrder = async (req: Request | any, res: Response) => {
       return res.status(400).json({ message: 'No items in cart' });
     }
 
-    // 2. Calculate total and build order items
-    let totalPrice = 0;
+    // 2. Calculate the subtotal and build order items. Money is summed in whole
+    // paise so the GST and the Razorpay amount are exact.
+    let subtotalPaise = 0;
     const orderItems: any[] = [];
-    
+
     for (const item of cart.items) {
       if (!item.product) continue;
       const price = (item.product as any).price;
-      totalPrice += price * item.quantity;
+      subtotalPaise += Math.round(price * 100) * item.quantity;
       orderItems.push({
         product: (item.product as any)._id,
         quantity: item.quantity,
@@ -47,6 +49,9 @@ export const createOrder = async (req: Request | any, res: Response) => {
       return res.status(400).json({ message: 'One or more products in your cart are no longer available. Please refresh your cart.' });
     }
 
+    // Catalogue prices exclude GST; it's added here, once, and charged.
+    const { gstPaise, totalPaise } = withGst(subtotalPaise);
+
     // 3. Create Razorpay order
     const instance = new Razorpay({
       key_id: razorpayKeyId,
@@ -54,7 +59,7 @@ export const createOrder = async (req: Request | any, res: Response) => {
     });
 
     const options = {
-      amount: Math.round(totalPrice * 100),  // amount in smallest currency unit (paise for INR)
+      amount: totalPaise,  // amount in smallest currency unit (paise for INR)
       currency: "INR",
       receipt: `receipt_order_${Date.now()}`
     };
@@ -81,7 +86,10 @@ export const createOrder = async (req: Request | any, res: Response) => {
     const order = await Order.create({
       user: req.user?._id,
       items: orderItems,
-      totalPrice,
+      totalPrice: totalPaise / 100,
+      subtotal: subtotalPaise / 100,
+      gstRate: GST_PERCENT,
+      gstAmount: gstPaise / 100,
       shippingAddress,
       phoneNumber,
       status: 'Pending Payment',
