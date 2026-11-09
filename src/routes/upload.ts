@@ -1,10 +1,6 @@
 import path from 'path';
-<<<<<<< HEAD
-import express, { Request, Response, NextFunction } from 'express';
-=======
 import crypto from 'crypto';
-import express from 'express';
->>>>>>> 1b914486984126c625bd5a33098fae48398e8367
+import express, { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import fs from 'fs';
 import { protect, admin } from '../middleware/auth';
@@ -57,10 +53,6 @@ function checkFileType(file: Express.Multer.File, cb: multer.FileFilterCallback)
 
 const upload = multer({
   storage,
-  // There was no size cap, which is how ~500 KB (and larger) originals ended up
-  // in the catalog. 5 MB is a generous ceiling that still rejects accidental
-  // uploads of unprocessed camera files.
-  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: function (req, file, cb) {
     checkFileType(file, cb);
   },
