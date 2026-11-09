@@ -16,14 +16,19 @@ export const getProducts = async (req: Request, res: Response) => {
     const limitNumber = parseInt(limit as string, 10);
     const skip = (pageNumber - 1) * limitNumber;
 
-    const products = await Product.find(filter)
-      .populate('category', 'name')
-      .sort({ sortOrder: 1, name: 1 })
-      .skip(skip)
-      .limit(limitNumber);
-      
-    const total = await Product.countDocuments(filter);
-      
+    // .lean() returns plain objects instead of hydrating 30+ Mongoose
+    // documents (each carrying a large rich-text `description`), and the count
+    // now runs alongside the find rather than as a second round trip after it.
+    const [products, total] = await Promise.all([
+      Product.find(filter)
+        .populate('category', 'name')
+        .sort({ sortOrder: 1, name: 1 })
+        .skip(skip)
+        .limit(limitNumber)
+        .lean(),
+      Product.countDocuments(filter),
+    ]);
+
     res.json({
       products,
       page: pageNumber,
@@ -38,12 +43,14 @@ export const getProducts = async (req: Request, res: Response) => {
 
 export const getProductBySlug = async (req: Request, res: Response) => {
   try {
-    const product = await Product.findOne({ slug: req.params.slug }).populate('category', 'name');
-    
+    const product = await Product.findOne({ slug: req.params.slug })
+      .populate('category', 'name')
+      .lean();
+
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
-    
+
     res.json(product);
   } catch (error) {
     console.error('Error fetching product by slug:', error);

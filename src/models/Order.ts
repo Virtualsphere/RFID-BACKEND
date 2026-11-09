@@ -11,7 +11,13 @@ export interface IOrderItem {
 export interface IOrder extends Document {
   user: mongoose.Types.ObjectId | IUser;
   items: IOrderItem[];
+  /** What the customer is charged: `subtotal` + `gstAmount` (orders placed before GST was added: just the items). */
   totalPrice: number;
+  /** Items before GST. Absent on orders placed before GST was added. */
+  subtotal?: number;
+  /** The GST rate that applied, in percent. */
+  gstRate?: number;
+  gstAmount?: number;
   status: 'Pending Payment' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
   paymentStatus: 'Pending' | 'Paid' | 'Failed';
   razorpayOrderId?: string;
@@ -52,6 +58,16 @@ const OrderSchema: Schema = new Schema(
       type: Number,
       required: true,
       default: 0.0,
+    },
+    // No defaults: an order without these was placed before GST was added.
+    subtotal: {
+      type: Number,
+    },
+    gstRate: {
+      type: Number,
+    },
+    gstAmount: {
+      type: Number,
     },
     shippingAddress: {
       type: String,

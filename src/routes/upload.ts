@@ -1,5 +1,10 @@
 import path from 'path';
+<<<<<<< HEAD
 import express, { Request, Response, NextFunction } from 'express';
+=======
+import crypto from 'crypto';
+import express from 'express';
+>>>>>>> 1b914486984126c625bd5a33098fae48398e8367
 import multer from 'multer';
 import fs from 'fs';
 import { protect, admin } from '../middleware/auth';
@@ -25,9 +30,15 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename(req, file, cb) {
+    // Date.now() alone collides: multer writes a multi-file upload one after
+    // another, so two images in the same batch can land in the same
+    // millisecond and the second silently overwrites the first. Two products
+    // in the live database already lost an image this way. The random suffix
+    // makes each name unique.
+    const unique = crypto.randomBytes(6).toString('hex');
     cb(
       null,
-      `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`
+      `${file.fieldname}-${Date.now()}-${unique}${path.extname(file.originalname)}`
     );
   },
 });
@@ -46,6 +57,10 @@ function checkFileType(file: Express.Multer.File, cb: multer.FileFilterCallback)
 
 const upload = multer({
   storage,
+  // There was no size cap, which is how ~500 KB (and larger) originals ended up
+  // in the catalog. 5 MB is a generous ceiling that still rejects accidental
+  // uploads of unprocessed camera files.
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: function (req, file, cb) {
     checkFileType(file, cb);
   },
